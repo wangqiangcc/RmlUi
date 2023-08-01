@@ -4,6 +4,69 @@
 
 cmake_minimum_required(VERSION 3.1)
 
+# Scan extracted sdk dir
+set(FREETYPE_PACKAGE_NAME "freetype-2.13.1")
+set(FREETYPE_EXTRACTED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Dependencies/")
+
+# Extract freetype package
+if(NOT EXISTS ${FREETYPE_EXTRACTED_DIR}${FREETYPE_PACKAGE_NAME})
+  set(FREETYPE_LOCAL_PACKAGE_PATH "${FREETYPE_EXTRACTED_DIR}/${FREETYPE_PACKAGE_NAME}.tar.xz")
+
+  # if no local freetype package file then download it
+  if(NOT EXISTS "${FREETYPE_LOCAL_PACKAGE_PATH}")
+    set(FREETYPE_DOWNLOAD_URL "https://download.savannah.gnu.org/releases/freetype/${FREETYPE_PACKAGE_NAME}.tar.xz")
+    message(STATUS "Downloading freetype from ${FREETYPE_DOWNLOAD_URL}")
+    file(DOWNLOAD
+      "${FREETYPE_DOWNLOAD_URL}" # URL
+      "${FREETYPE_LOCAL_PACKAGE_PATH}" # Local Path
+      SHOW_PROGRESS
+      TLS_VERIFY ON
+      STATUS DOWNLOAD_RESULT
+    )
+    list(GET DOWNLOAD_RESULT 0 DOWNLOAD_RESULT_CODE)
+    list(GET DOWNLOAD_RESULT 1 DOWNLOAD_RESULT_MESSAGE)
+
+    if(NOT DOWNLOAD_RESULT_CODE EQUAL 0)
+      file(REMOVE "${FREETYPE_LOCAL_PACKAGE_PATH}")
+      message(FATAL_ERROR "Failed to download freetype, ERROR:[${DOWNLOAD_RESULT_CODE}]${DOWNLOAD_RESULT_MESSAGE}")
+    endif()
+  endif()
+
+  message(STATUS "Extracting freetype from ${FREETYPE_LOCAL_PACKAGE_PATH}")
+
+  # Extract
+  file(ARCHIVE_EXTRACT
+    INPUT "${FREETYPE_LOCAL_PACKAGE_PATH}"
+    DESTINATION "${FREETYPE_EXTRACTED_DIR}"
+    VERBOSE
+  )
+
+endif()
+
+# output
+message(STATUS "freetype dir: ${FREETYPE_EXTRACTED_DIR}${FREETYPE_PACKAGE_NAME}")
+
+# Build freetype as an external project.
+include(ExternalProject)
+set(FREETYPE_INSTALL_DIR ${CMAKE_BINARY_DIR}/Dependencies/${FREETYPE_PACKAGE_NAME})
+set(FREETYPE_INCLUDE_DIRS ${FREETYPE_INSTALL_DIR}/include/freetype2)
+set(FREETYPE_LIB_DIR ${FREETYPE_INSTALL_DIR}/lib)
+ExternalProject_Add(freetype_external_project
+                    SOURCE_DIR  ${CMAKE_SOURCE_DIR}/Dependencies/${FREETYPE_PACKAGE_NAME}
+                    PREFIX      ${FREETYPE_INSTALL_DIR}
+                    INSTALL_DIR ${FREETYPE_INSTALL_DIR}
+                    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX:PATH=${FREETYPE_INSTALL_DIR}
+                                -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+                                -DCMAKE_CXX_FLAGS=${EXTERNAL_PROJECT_CMAKE_CXX_FLAGS}
+                   )
+include_directories(BEFORE SYSTEM ${FREETYPE_INCLUDE_DIRS})
+link_directories(${FREETYPE_LIB_DIR})
+set(FREETYPE_LIBRARY ${FREETYPE_LIB_DIR}/freetyped.lib)
+
+if(WIN32)
+set(CMAKE_SYSTEM_VERSION "10.0.17763.0")
+endif()
+
 if(APPLE)
 	# This has to be before most other options so CMake properly handles the
 	# compiler variables, it MUST bebefore the project() definition
